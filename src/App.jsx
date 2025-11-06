@@ -19,9 +19,68 @@ const EMO_TO_THEME = {
   neutral: "Clarity & Trust (data, compliance, governance)",
 };
 
+// ===== Strict thumbs-up helpers =====
+const IDX = {
+  WRIST: 0,
+  TH_CMC: 1, TH_MCP: 2, TH_IP: 3, TH_TIP: 4,
+  IN_MCP: 5, IN_PIP: 6, IN_DIP: 7, IN_TIP: 8,
+  MI_MCP: 9, MI_PIP:10, MI_DIP:11, MI_TIP:12,
+  RI_MCP:13, RI_PIP:14, RI_DIP:15, RI_TIP:16,
+  PI_MCP:17, PI_PIP:18, PI_DIP:19, PI_TIP:20,
+};
+
+// tip “below” PIP (curled) — y larger means lower on screen
+function tipBelowPIP(hand, tipIdx, pipIdx, margin = 12) {
+  const tip = hand.keypoints[tipIdx];
+  const pip = hand.keypoints[pipIdx];
+  if (!tip || !pip) return false;
+  return tip.y > (pip.y + margin);
+}
+
+// angle between (MCP→TIP) vector and “up” (0,-1). 0°=perfect up, 90°=sideways
+function angleToUp(vx, vy) {
+  const dot = (vx*0) + (vy*-1);
+  const mag = Math.hypot(vx, vy) || 1e-6;
+  const cos = Math.max(-1, Math.min(1, dot/mag));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+
+// Quality gate: reject very low-confidence hands (some cams are noisy)
+function handConf(hand) {
+  // tfjs hand-pose-detection returns score or score[0]
+  const s = Array.isArray(hand.score) ? hand.score[0] : hand.score;
+  return (typeof s === 'number' ? s : 1); // default 1 if absent
+}
+
+// STRICT thumbs-up (orientation + curled other fingers + palm roughly upright)
+function robustThumbsUpStrict(hand) {
+  if (!hand?.keypoints) return false;
+  const k = hand.keypoints;
+
+  // 1) Thumb pointing upwards
+  const vx = k[IDX.TH_TIP].x - k[IDX.TH_MCP].x;
+  const vy = k[IDX.TH_TIP].y - k[IDX.TH_MCP].y;
+  const angUp = angleToUp(vx, vy);        // smaller is “more up”
+  const thumbUp = angUp < 30;             // make stricter/looser (25–40)
+
+  // 2) Other fingers curled (tips below PIPs)
+  const indexCurled  = tipBelowPIP(hand, IDX.IN_TIP, IDX.IN_PIP);
+  const middleCurled = tipBelowPIP(hand, IDX.MI_TIP, IDX.MI_PIP);
+  const ringCurled   = tipBelowPIP(hand, IDX.RI_TIP, IDX.RI_PIP);
+  const pinkyCurled  = tipBelowPIP(hand, IDX.PI_TIP, IDX.PI_PIP);
+
+  // 3) Palm roughly vertical (wrist below index MCP) — filters sideways cases
+  const palmUpright = k[IDX.WRIST]?.y > (k[IDX.IN_MCP]?.y ?? 0) - 8;
+
+  return thumbUp && indexCurled && middleCurled && ringCurled && pinkyCurled && palmUpright;
+}
+
+
 export default function App() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+// Stability counters + cooldown
+const cooldownRef  = useRef(0);     // frames to ignore after arming
 
   const [detectors, setDetectors] = useState(null);
   const [ready, setReady] = useState(false);
@@ -208,30 +267,48 @@ export default function App() {
       // }
 
       // --- Gesture arming (idle → armed) — ONLY thumbs-up, held stable ---
-      if (phase === "idle") {
-        // thumbs-up if ANY hand shows it
-        const anyThumbUp = hands.some(thumbsUp);
+         // ===== ONLY strict thumbs-up (held) → armed =====
+      if (cooldownRef.current > 0) cooldownRef.current -= 1;
 
-        if (anyThumbUp) {
-          thumbHoldRef.current += 1; // sustain
+      // Must see a face to avoid background triggers
+      if (phase === "idle" && faces[0]) {
+        // (Optional) gate on face size to avoid far-background faces
+        const faceArea = faces[0].box?.width * faces[0].box?.height;
+        const largeEnoughFace = faceArea ? faceArea > 8000 : true; // tune as needed
+
+        if (largeEnoughFace) {
+          // Any hand that is confident AND passes strict thumbs-up
+          const goodThumb = hands.some(
+            (h) => handConf(h) >= 0.7 && robustThumbsUpStrict(h)
+          );
+
+          if (goodThumb) {
+            // increase steadily when held
+            thumbHoldRef.current += 1;
+          } else {
+            // decay (hysteresis), not an instant reset
+            thumbHoldRef.current = Math.max(0, thumbHoldRef.current - 3);
+          }
+
+          // Need ~0.6s of stable thumbs-up @ ~60fps → 36 frames
+          if (thumbHoldRef.current >= 36 && cooldownRef.current === 0) {
+            setPhase("armed");
+            setCount(10);
+            emotionBuckets.current = { happy:0, surprised:0, angry:0, neutral:0 };
+            thumbHoldRef.current = 0;
+            cooldownRef.current = 60; // ~1s cooldown to prevent immediate re-arming
+          }
         } else {
-          thumbHoldRef.current = 0; // reset if not held
-        }
-
-        // require ~0.4s of thumbs-up to arm (at ~60fps → 24 frames)
-        // tweak 18–30 to be looser/stricter
-        if (thumbHoldRef.current >= 24) {
-          setPhase("armed");
-          setCount(10);
-          emotionBuckets.current = {
-            happy: 0,
-            surprised: 0,
-            angry: 0,
-            neutral: 0,
-          };
+          // face too small — do not accumulate
           thumbHoldRef.current = 0;
         }
       }
+
+      // If face disappears, drop accumulation
+      if (phase === "idle" && !faces[0]) {
+        thumbHoldRef.current = 0;
+      }
+
 
       // collect emotion during countdown
       if (phase === "armed") {
@@ -354,7 +431,7 @@ export default function App() {
       : phase === "generating"
       ? "Generating PDF…"
       : phase === "done"
-      ? "Done!"
+      ? "صورتك جاهزه"
       : effect === "aura"
       ? "HAPPY HERO"
       : effect === "flames"
@@ -362,8 +439,8 @@ export default function App() {
       : effect === "shockwave"
       ? "SHOCKWAVE"
       : effect === "beam"
-      ? "ENERGY BEAM"
-      : "STAND BY";
+      ? "مستعد تاخذ صوره"
+      : "التقط لك صوره من مركز الابتكار";
 
   const titleClass =
     emotion === "happy"
@@ -387,8 +464,8 @@ export default function App() {
 
       <div className="overlay">
         <h1 className={titleClass}>{title}</h1>
-        <div className="subtitle">
-          Face the camera. Raise both hands or show a thumbs-up to start.
+        <div className="subtitle" style={{ fontSize: "2rem", fontWeight: "600", marginTop: "1rem" }}>
+          اذا مستعد عطنا 👍 وراح يلتقط لك صوره 
         </div>
 
         <div className="hud ui">
