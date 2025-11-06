@@ -1,0 +1,74 @@
+/* base (yours) */
+.booth{position:relative;width:100vw;height:100vh;overflow:hidden;background:#000;color:#fff}
+.mirror{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;filter:brightness(1.1) contrast(1.2)}
+.title{position:absolute;top:26px;left:50%;transform:translateX(-50%);font-size:3.5rem;font-weight:bold;text-shadow:0 0 30px gold;animation:glow 1.5s infinite alternate;pointer-events:none}
+.subtitle{position:absolute;top:92px;left:50%;transform:translateX(-50%);font-size:1rem;color:#aaa;letter-spacing:2px;pointer-events:none}
+.title.happy{color:gold}.title.angry{color:#ff3333;text-shadow:0 0 40px red}.title.neutral{color:cyan}.title.surprised{color:#77ddff;text-shadow:0 0 40px #77ddff}
+.particles-canvas{position:absolute;inset:0;pointer-events:none}
+
+/* overlay defaults to NON-interactive; opt-in per child with .ui */
+.overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.overlay .ui{pointer-events:auto}
+
+/* HUD */
+.hud{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.45);padding:10px 12px;border-radius:12px;font-size:12px;color:#cfe;backdrop-filter:blur(6px);box-shadow:0 0 20px rgba(0,255,136,.15)}
+
+/* QR block stays clickable */
+.qr-container{position:absolute;bottom:30px;left:30px;display:flex;flex-direction:column;align-items:center;z-index:30}
+.qr-box{background:rgba(0,0,0,.7);padding:15px;border-radius:15px;text-align:center;font-size:.9rem;backdrop-filter:blur(5px)}
+.qr-box p{margin-top:8px;color:#fff}
+.capture-btn{margin-top:15px;padding:12px 24px;font-size:1.2rem;background:#00ff88;color:#000;border:none;border-radius:50px;font-weight:bold;cursor:pointer;box-shadow:0 0 20px #00ff88}
+
+/* on-demand open button */
+.idea-btn{position:absolute;right:24px;bottom:24px;padding:12px 18px;border:0;border-radius:999px;font-weight:700;background:#00ff88;box-shadow:0 0 24px #00ff88aa;color:#000;cursor:pointer;z-index:40}
+
+/* loader */
+.loader{position:fixed;inset:0;background:linear-gradient(135deg,#000,#111);display:flex;flex-direction:column;justify-content:center;align-items:center;color:gold;z-index:9999}
+.spinner{width:60px;height:60px;border:6px solid #333;border-top:6px solid #00ff88;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader h2{font-size:2rem;margin:10px 0;text-shadow:0 0 20px gold}
+.loader p{color:#aaa;font-size:1.1rem}
+@keyframes glow{from{text-shadow:0 0 15px gold}to{text-shadow:0 0 50px orange,0 0 70px red}}
+
+/* Modal */
+.panel-root{z-index:50}
+.idea-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}
+.idea-card{width:min(980px,92vw);background:linear-gradient(180deg,#0a0a0a,#111);color:#fff;border-radius:20px;padding:24px;box-shadow:0 0 60px rgba(0,255,136,.2)}
+.idea-header{display:flex;align-items:center;justify-content:space-between}
+.idea-header h2{font-size:1.4rem;color:#00ff88;text-shadow:0 0 18px #00ff88}
+.close-btn{background:transparent;border:none;color:#fff;font-size:24px;cursor:pointer}
+.mood{opacity:.85;margin:6px 0 14px}
+.idea-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+.lbl{display:block;font-size:.9rem;opacity:.85;margin-bottom:6px}
+.idea-input{width:100%;background:#0b0b0b;color:#eaeaea;border:1px solid #222;border-radius:12px;padding:12px;outline:none;box-shadow:inset 0 0 20px rgba(0,255,136,.05)}
+.actions{margin-top:12px;display:flex;gap:10px}
+.primary{background:#00ff88;color:#0a0a0a;border:none;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(0,255,136,.45)}
+.ghost{background:transparent;color:#fff;border:1px solid #333;border-radius:999px;padding:10px 16px;cursor:pointer}
+.selfie-thumb{width:100%;border-radius:12px;border:3px solid gold}
+.no-selfie,.hint{font-size:.9rem;opacity:.8;margin-top:8px}
+.canvas-block{margin-top:16px}
+.canvas-block h3{color:#00ff88;margin-bottom:8px}
+.canvas-grid{display:grid;gap:10px;grid-template-columns:repeat(3,1fr)}
+.canvas-grid section{background:#0b0b0b;border:1px solid #1d1d1d;border-radius:12px;padding:10px}
+.canvas-grid h4{color:#aad;font-size:.95rem;margin-bottom:4px}
+@media (max-width:900px){.idea-grid{grid-template-columns:1fr}.canvas-grid{grid-template-columns:1fr}}
+/* overlay already in your css */
+
+/* countdown & spinner */
+.count-overlay{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  backdrop-filter: blur(1.5px) brightness(0.95);
+}
+.ring{
+  width:180px; height:180px; border-radius:50%;
+  border:10px solid rgba(0,255,136,0.18);
+  border-top-color: rgba(0,255,136,0.95);
+  animation:spin 1.1s linear infinite;
+  position:absolute;
+}
+.count-text{
+  position:relative; font-size:56px; font-weight:800; color:#00ff88; text-shadow:0 0 26px #00ff88;
+}
+
+/* keep */
+.hud{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.45);padding:10px 12px;border-radius:12px;font-size:12px;color:#cfe;backdrop-filter:blur(6px);box-shadow:0 0 20px rgba(0,255,136,.15)}
